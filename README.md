@@ -7,9 +7,18 @@ next teammate, or you in a week) has to re-derive all of it from a diff.
 
 **handoff** is a [Claude Code](https://claude.com/claude-code) skill that
 fixes this with one command at the end of a session: it commits and pushes
-your pending changes, then writes (or updates) a `HANDOFF.md` file at the
-repo root — a dated, human-readable summary of what changed and why — so the
-next session can pick up cold with full context.
+your pending changes, then updates two files at the repo root so the next
+session can pick up cold with full context:
+
+- **`HANDOFF.md`**: the *current state* of the project (stack, workflows,
+  how each part works today, gotchas, known follow-ups). It stays short, and
+  every new session reads it in full.
+- **`HANDOFF-history.md`**: an append-only, dated log of what changed in
+  each session and why. It's never read in full; sessions grep it for the
+  feature or file they're about to touch.
+
+The split keeps start-of-session reading cheap. A single file that holds every
+session's log eventually grows to tens of thousands of tokens.
 
 ## What it does
 
@@ -24,11 +33,13 @@ When invoked, the skill:
 3. Runs whatever verification step the project already has (`npm run
    build`/`test`/`lint`, etc.) — best effort, doesn't invent one.
 4. Stages and commits the session's changes.
-5. Drafts a new `## Changes — session <date>` section in `HANDOFF.md`:
-   what changed, which files/functions, and any non-obvious reasoning
-   (gotchas, rejected alternatives, migrations). Updates any "known
-   follow-ups" / TODO section to reflect what was resolved or newly deferred.
-6. Commits `HANDOFF.md` (unless you've asked to keep it local-only) and
+5. Appends a new `## Changes — session <date>` section to
+   `HANDOFF-history.md`: what changed, which files/functions, and any
+   non-obvious reasoning (gotchas, rejected alternatives, migrations). Then
+   updates `HANDOFF.md` in place wherever a current-state fact changed,
+   including the "known follow-ups" / TODO section. Projects with an older
+   single-file `HANDOFF.md` are offered a one-time split.
+6. Commits both files (unless you've asked to keep them local-only) and
    pushes everything.
 7. Reports back exactly what was committed, the commit hash(es), and whether
    the push succeeded.
@@ -39,8 +50,9 @@ imposing its own.
 
 ## Why not just rely on commit messages?
 
-Commit messages describe one commit. `HANDOFF.md` accumulates a running,
-dated narrative of a project across many sessions — the kind of context a
+Commit messages describe one commit. `HANDOFF-history.md` accumulates a
+running, dated narrative of a project across many sessions, and `HANDOFF.md`
+distils it into what's true now — the kind of context a
 new contributor (human or AI) would otherwise have to reconstruct by reading
 the whole git log and guessing at intent.
 
@@ -82,6 +94,8 @@ You can also invoke it explicitly with `/handoff` if your setup supports
 slash-command skill invocation.
 
 ## Example
+
+An entry appended to `HANDOFF-history.md`:
 
 ```
 ## Changes — session 2026-06-30
